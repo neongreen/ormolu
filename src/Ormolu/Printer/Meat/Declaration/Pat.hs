@@ -45,11 +45,11 @@ p_pat = \case
     bracketsPar $ velt (withSep comma (located' p_pat) pats)
   ConPatIn pat details ->
     case details of
-      PrefixCon xs -> do
+      PrefixCon xs -> sitcc $ do
         located pat p_rdrName
-        unless (null xs) . inci . inci $ do
+        unless (null xs) $ do
           breakpoint
-          velt' (located' p_pat <$> xs)
+          inci $ velt' (located' p_pat <$> xs)
       RecCon (HsRecFields fields dotdot) -> do
         located pat p_rdrName
         case dotdot of

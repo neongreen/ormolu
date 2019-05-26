@@ -25,6 +25,7 @@ p_valDecl = line . p_valDecl'
 p_valDecl' :: HsBindLR GhcPs GhcPs -> R ()
 p_valDecl' = \case
   FunBind funId funMatches _ _ _ -> p_funBind funId funMatches
+  PatBind pat grhss _ _ _ -> p_match PatternBind [pat] grhss
   _ -> notImplemented "certain kinds of binding declarations"
 
 p_funBind
@@ -36,6 +37,7 @@ p_funBind name mgroup =
 
 data MatchGroupStyle
   = Function RdrName
+  | PatternBind
   | Case
   | Lambda
   | LambdaCase
@@ -46,13 +48,14 @@ p_matchGroup
   -> R ()
 p_matchGroup style MG {..} =
   locatedVia Nothing mg_alts $
-    newlineSep (located' (p_match style))
+    newlineSep (located' (\Match {..} -> p_match style m_pats m_grhss))
 
 p_match
   :: MatchGroupStyle
-  -> Match GhcPs (LHsExpr GhcPs)
+  -> [LPat GhcPs]
+  -> GRHSs GhcPs (LHsExpr GhcPs)
   -> R ()
-p_match style Match {..} = do
+p_match style m_pats m_grhss = do
   case style of
     Function name -> p_rdrName name
     _ -> return ()
@@ -74,10 +77,14 @@ p_match style Match {..} = do
       switchLayout combinedSpans $ do
         case style of
           Function _ -> breakpoint
+          PatternBind -> return ()
           Case -> return ()
           Lambda -> txt "\\"
           LambdaCase -> return ()
-        inci' (velt' (located' p_pat <$> m_pats))
+        let wrapper = case style of
+              Function _ -> inci'
+              _ -> id
+        wrapper (velt' (located' p_pat <$> m_pats))
       return inci'
   inci' $ do
     let GRHSs {..} = m_grhss
@@ -85,6 +92,7 @@ p_match style Match {..} = do
       space
       txt $ case style of
         Function _ -> "="
+        PatternBind -> "="
         _ -> "->"
     let combinedSpans = combineSrcSpans' $
           getGRHSSpan . unL <$> NE.fromList grhssGRHSs
