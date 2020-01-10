@@ -5,6 +5,12 @@ class Foo a where
   -- | Another Haddock
   bar :: a
 
+  baz :: a
+  -- ^ Post-Haddock
+
+  raz :: a
+  -- ^ Another Post-Haddock
+
   -- | One more Haddock
   qux :: a
 

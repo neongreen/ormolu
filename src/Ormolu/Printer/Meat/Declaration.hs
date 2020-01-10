@@ -62,9 +62,24 @@ p_hsDecls' grouping style decls = sepSemi id $
   where
     renderGroup = NE.toList . fmap (located' $ dontUseBraces . p_hsDecl style)
     renderGroupWithPrev prev curr =
-      if grouping == Disregard || separatedByBlank getLoc prev curr
-        then (breakpoint : renderGroup curr)
+      -- We can omit a blank line when the user didn't add one, but we must
+      -- ensure we always add blank lines around documented declarations
+      if or
+        [ grouping == Disregard,
+          separatedByBlank getLoc prev curr,
+          isDocumented prev,
+          isDocumented curr
+        ]
+        then breakpoint : renderGroup curr
         else renderGroup curr
+
+-- | Is a declaration group documented?
+isDocumented :: NonEmpty (LHsDecl GhcPs) -> Bool
+isDocumented = any (isHaddock . unLoc)
+  where
+    isHaddock DocNext = True
+    isHaddock DocPrev = True
+    isHaddock _ = False
 
 -- | Group relevant declarations together.
 --

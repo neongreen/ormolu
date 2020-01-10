@@ -6,6 +6,7 @@ class Foo a where type FooBar a
 class Bar a where
   -- | Bar bar
   type BarBar a
+
   -- | Bar baz
   type
     BarBaz

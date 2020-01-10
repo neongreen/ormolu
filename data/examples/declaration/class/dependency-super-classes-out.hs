@@ -17,6 +17,7 @@ class
   -- | 'getState' returns state
   getState ::
     m s
+
   -- | 'putState' sets state
   putState ::
     s ->

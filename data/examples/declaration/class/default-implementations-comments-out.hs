@@ -5,9 +5,11 @@ class Baz a where
   foobar :: a -> a
   foobar a =
     barbaz (bazbar a)
+
   -- | Bar baz
   barbaz ::
     a -> a
+
   -- | Baz bar
   bazbar ::
     a ->
