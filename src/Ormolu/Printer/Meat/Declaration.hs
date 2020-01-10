@@ -39,33 +39,35 @@ import Ormolu.Printer.Meat.Type
 import Ormolu.Utils
 import RdrName (rdrNameOcc)
 
+data DoBreak = BreakYes | BreakNo
+  deriving (Eq, Show)
+
 p_hsDecls :: FamilyStyle -> [LHsDecl GhcPs] -> R ()
-p_hsDecls = p_hsDecls' True
+p_hsDecls = p_hsDecls' BreakYes
 
--- | Like p_hsDecl but preserves user added newlines
+-- | Like 'p_hsDecls' but preserves user added newlines.
 --
--- Do some normalization (compress subsequent newlines into a single one)
+-- Does some normalization (compress subsequent newlines into a single one)
 p_hsDeclsPreserveNl :: FamilyStyle -> [LHsDecl GhcPs] -> R ()
-p_hsDeclsPreserveNl style decls = p_hsDecls' False style decls
+p_hsDeclsPreserveNl style decls = p_hsDecls' BreakNo style decls
 
-p_hsDecls' :: Bool -> FamilyStyle -> [LHsDecl GhcPs] -> R ()
+p_hsDecls' :: DoBreak -> FamilyStyle -> [LHsDecl GhcPs] -> R ()
 p_hsDecls' doBreak style decls = sepSemi id $
   -- Return a list of rendered declarations, adding a newline to separate
   -- groups.
   case groupDecls decls of
-  -- case bool groupDecls0 groupDecls doBreak decls of
     [] -> []
-    (x : xs) -> do
-      NE.toList (renderGroup $ traceShow (getLoc <$> x) x)
+    (x : xs) ->
+      NE.toList (renderGroup $ {-XXX-} traceShow (getLoc <$> x) x)
         ++ concatMap
           (NE.toList . uncurry separateGroup . fmap renderGroup)
-          ( fmap (\(n,y) -> traceShow ((doBreak, n), fmap getLoc y) (n, y)) $ locsWithBlanks' x getLoc xs)
+          (fmap (\(n,y) -> {-XXX-} traceShow ((doBreak, n), fmap getLoc y) (n, y)) $ locsWithBlanks' x getLoc xs)
   where
     renderGroup = fmap (located' $ dontUseBraces . p_hsDecl style)
     separateGroup doBlank (x :| xs) =
       breakpointFor doBlank x :| xs
     breakpointFor doBlank x = do
-      when (or [doBreak, doBlank]) breakpoint'
+      when (or [doBreak == BreakYes, doBlank]) breakpoint'
       x
 
 -- | Group relevant declarations together.
