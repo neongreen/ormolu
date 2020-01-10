@@ -171,6 +171,9 @@ groupedDecls ::
   HsDecl GhcPs ->
   Bool
 groupedDecls (TypeSignature ns) (FunctionBody ns') = ns `intersects` ns'
+groupedDecls (TypeSignature ns) (DefaultSignature ns') = ns `intersects` ns'
+groupedDecls (DefaultSignature ns) (TypeSignature ns') = ns `intersects` ns'
+groupedDecls (DefaultSignature ns) (FunctionBody ns') = ns `intersects` ns'
 groupedDecls x (FunctionBody ns) | Just ns' <- isPragma x = ns `intersects` ns'
 groupedDecls (FunctionBody ns) x | Just ns' <- isPragma x = ns `intersects` ns'
 groupedDecls x (DataDeclaration n) | Just ns <- isPragma x = n `elem` ns
@@ -232,11 +235,13 @@ pattern DataDeclaration n <- TyClD NoExt (DataDecl NoExt (L _ n) _ _ _)
 
 pattern
   TypeSignature,
+  DefaultSignature,
   FunctionBody,
   PatternSignature,
   WarningPragma ::
     [RdrName] -> HsDecl GhcPs
 pattern TypeSignature n <- (sigRdrNames -> Just n)
+pattern DefaultSignature n <- (defSigRdrNames -> Just n)
 pattern FunctionBody n <- (funRdrNames -> Just n)
 pattern PatternSignature n <- (patSigRdrNames -> Just n)
 pattern WarningPragma n <- (warnSigRdrNames -> Just n)
@@ -250,6 +255,10 @@ sigRdrNames (SigD NoExt (TypeSig NoExt ns _)) = Just $ map unLoc ns
 sigRdrNames (SigD NoExt (ClassOpSig NoExt _ ns _)) = Just $ map unLoc ns
 sigRdrNames (SigD NoExt (PatSynSig NoExt ns _)) = Just $ map unLoc ns
 sigRdrNames _ = Nothing
+
+defSigRdrNames :: HsDecl GhcPs -> Maybe [RdrName]
+defSigRdrNames (SigD NoExt (ClassOpSig NoExt True ns _)) = Just $ map unLoc ns
+defSigRdrNames _ = Nothing
 
 funRdrNames :: HsDecl GhcPs -> Maybe [RdrName]
 funRdrNames (ValD NoExt (FunBind NoExt (L _ n) _ _ _)) = Just [n]

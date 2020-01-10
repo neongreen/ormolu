@@ -9,7 +9,6 @@ class Bar a where
     String ->
     String ->
     a
-
   -- Pointless comment
   default bar ::
     ( Read a,

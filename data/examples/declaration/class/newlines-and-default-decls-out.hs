@@ -7,6 +7,5 @@ class Foo a where
   bar = ()
 
   qux :: a
-
   default qux :: ()
   qux = ()
