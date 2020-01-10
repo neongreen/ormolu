@@ -7,13 +7,10 @@
 -- | Rendering of declarations.
 module Ormolu.Printer.Meat.Declaration
   ( p_hsDecls,
-    p_hsDeclsPreserveNl,
-    hasSeparatedDecls,
+    p_hsDeclsRespectGrouping,
   )
 where
 
-import Debug.Trace
-import Control.Monad
 import Data.List (sort)
 import Data.List.NonEmpty ((<|), NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
@@ -39,36 +36,35 @@ import Ormolu.Printer.Meat.Type
 import Ormolu.Utils
 import RdrName (rdrNameOcc)
 
-data DoBreak = BreakYes | BreakNo
+data UserGrouping
+  = Disregard -- ^ Always put newlines where we think they should be
+  | Respect -- ^ Respect user preferences regarding grouping
   deriving (Eq, Show)
 
 p_hsDecls :: FamilyStyle -> [LHsDecl GhcPs] -> R ()
-p_hsDecls = p_hsDecls' BreakYes
+p_hsDecls = p_hsDecls' Disregard
 
--- | Like 'p_hsDecls' but preserves user added newlines.
+-- | Like 'p_hsDecls' but respects user choices regarding grouping. If the
+-- user omits newlines between declarations, we also omit them in most
+-- cases, except when said declarations have associated Haddocks.
 --
 -- Does some normalization (compress subsequent newlines into a single one)
-p_hsDeclsPreserveNl :: FamilyStyle -> [LHsDecl GhcPs] -> R ()
-p_hsDeclsPreserveNl style decls = p_hsDecls' BreakNo style decls
+p_hsDeclsRespectGrouping :: FamilyStyle -> [LHsDecl GhcPs] -> R ()
+p_hsDeclsRespectGrouping = p_hsDecls' Respect
 
-p_hsDecls' :: DoBreak -> FamilyStyle -> [LHsDecl GhcPs] -> R ()
-p_hsDecls' doBreak style decls = sepSemi id $
+p_hsDecls' :: UserGrouping -> FamilyStyle -> [LHsDecl GhcPs] -> R ()
+p_hsDecls' grouping style decls = sepSemi id $
   -- Return a list of rendered declarations, adding a newline to separate
   -- groups.
   case groupDecls decls of
     [] -> []
-    (x : xs) ->
-      NE.toList (renderGroup $ {-XXX-} traceShow (getLoc <$> x) x)
-        ++ concatMap
-          (NE.toList . uncurry separateGroup . fmap renderGroup)
-          (fmap (\(n,y) -> {-XXX-} traceShow ((doBreak, n), fmap getLoc y) (n, y)) $ locsWithBlanks' x getLoc xs)
+    (x : xs) -> renderGroup x ++ concat (zipWith renderGroupWithPrev (x : xs) xs)
   where
-    renderGroup = fmap (located' $ dontUseBraces . p_hsDecl style)
-    separateGroup doBlank (x :| xs) =
-      breakpointFor doBlank x :| xs
-    breakpointFor doBlank x = do
-      when (or [doBreak == BreakYes, doBlank]) breakpoint'
-      x
+    renderGroup = NE.toList . fmap (located' $ dontUseBraces . p_hsDecl style)
+    renderGroupWithPrev prev curr =
+      if grouping == Disregard || separatedByBlank getLoc prev curr
+        then (breakpoint : renderGroup curr)
+        else renderGroup curr
 
 -- | Group relevant declarations together.
 --
@@ -170,7 +166,7 @@ groupedDecls x y | Just ns <- isPragma x, Just ns' <- isPragma y = ns `intersect
 groupedDecls x (TypeSignature ns) | Just ns' <- isPragma x = ns `intersects` ns'
 groupedDecls (TypeSignature ns) x | Just ns' <- isPragma x = ns `intersects` ns'
 groupedDecls (PatternSignature ns) (Pattern n) = n `elem` ns
--- XXX: this looks only at haddock comments?
+-- This looks only at Haddocks, normal comments are handled elsewhere
 groupedDecls DocNext _ = True
 groupedDecls _ DocPrev = True
 groupedDecls _ _ = False
@@ -185,13 +181,6 @@ intersects a b = go (sort a) (sort b)
       | x < y = go xs (y : ys)
       | x > y = go (x : xs) ys
       | otherwise = True
-
--- | Checks if given list of declarations contain a pair which should
--- be separated by a blank line.
-hasSeparatedDecls :: [LHsDecl GhcPs] -> Bool
-hasSeparatedDecls xs = case groupDecls xs of
-  _ : _ : _ -> True
-  _ -> False
 
 isPragma ::
   HsDecl GhcPs ->

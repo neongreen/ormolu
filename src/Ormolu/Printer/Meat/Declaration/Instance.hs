@@ -95,7 +95,7 @@ p_clsInstDecl = \case
           $ do
             -- Ensure whitespace is added after where clause.
             breakpoint
-            dontUseBraces $ p_hsDeclsPreserveNl Associated allDecls
+            dontUseBraces $ p_hsDeclsRespectGrouping Associated allDecls
       XHsImplicitBndrs NoExt -> notImplemented "XHsImplicitBndrs"
   XClsInstDecl NoExt -> notImplemented "XClsInstDecl"
 

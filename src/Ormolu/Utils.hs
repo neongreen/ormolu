@@ -10,8 +10,7 @@ module Ormolu.Utils
     splitDocString,
     typeArgToType,
     unSrcSpan,
-    locsWithBlanks,
-    locsWithBlanks',
+    separatedByBlank,
   )
 where
 
@@ -21,7 +20,7 @@ import qualified Data.List.NonEmpty as NE
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Traversable (mapAccumL)
+import Data.Maybe (fromMaybe)
 import GHC
 import HsDoc (HsDocString, unpackHDS)
 import qualified Outputable as GHC
@@ -89,42 +88,10 @@ unSrcSpan :: SrcSpan -> Maybe RealSrcSpan
 unSrcSpan (RealSrcSpan r) = Just r
 unSrcSpan (UnhelpfulSpan _) = Nothing
 
--- | Compute whether blank lines need to be inserted
-locsWithBlanks :: (a -> SrcSpan) -> [a] -> [(Bool, a)]
-locsWithBlanks f =
-  snd
-    . mapAccumL (\prev a -> (end a, (computeDiff a prev, a))) Nothing
-  where
-    end a = srcSpanEndLine <$> unSrcSpan (f a)
-    start a = srcSpanStartLine <$> unSrcSpan (f a)
-    diff loc prev = do
-      startLine <- prev
-      endLine <- start loc
-      pure $ endLine - startLine
-    computeDiff a prev
-      | Just i <- diff a prev,
-        i >= 2 =
-        True
-      | otherwise =
-        False
-
--- | Compute whether blank lines need to be inserted
-locsWithBlanks' :: NonEmpty a -> (a -> SrcSpan) -> [NonEmpty a] -> [(Bool, NonEmpty a)]
-locsWithBlanks' init' f =
-  snd
-    . mapAccumL (\prev a -> (end a, (computeDiff a prev, a))) (end init')
-  where
-    -- XXX: this is not looking at comments?
-    --
-    end a = srcSpanEndLine <$> unSrcSpan (f $ NE.last a)
-    start a = srcSpanStartLine <$> unSrcSpan (f $ NE.head a)
-    diff loc prev = do
-      startLine <- prev
-      endLine <- start loc
-      pure $ endLine - startLine
-    computeDiff a prev
-      | Just i <- diff a prev,
-        i >= 2 =
-        True
-      | otherwise =
-        False
+-- | Do two declaration groups have a blank between them?
+separatedByBlank :: (a -> SrcSpan) -> NonEmpty a -> NonEmpty a -> Bool
+separatedByBlank loc a b =
+  fromMaybe False $ do
+    endA <- srcSpanEndLine <$> unSrcSpan (loc $ NE.last a)
+    startB <- srcSpanStartLine <$> unSrcSpan (loc $ NE.head b)
+    pure (startB - endA >= 2)
