@@ -37,8 +37,10 @@ import Ormolu.Utils
 import RdrName (rdrNameOcc)
 
 data UserGrouping
-  = Disregard -- ^ Always put newlines where we think they should be
-  | Respect -- ^ Respect user preferences regarding grouping
+  = -- | Always put newlines where we think they should be
+    Disregard
+  | -- | Respect user preferences regarding grouping
+    Respect
   deriving (Eq, Show)
 
 p_hsDecls :: FamilyStyle -> [LHsDecl GhcPs] -> R ()
